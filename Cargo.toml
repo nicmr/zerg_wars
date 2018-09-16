@@ -1,0 +1,7 @@
+[package]
+name = "zerg_warz"
+version = "0.1.0"
+authors = ["Nicolas Mohr <Nico.Mohr@gmx.net>"]
+
+[dependencies]
+ggez = "0.4.4"
