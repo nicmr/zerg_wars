@@ -8,14 +8,24 @@ use ggez::conf;
 
 use std::{env, path};
 
-/// Constant that currently has no real use case
-const SPEED: f32 = 8.0;
 
+/// The following constants globally scale values such as speed, damage and size/position on the map
+/// They can be tweaked in order to make the game easier to observe by a human player
+/// 
+/// Please note that the realtionship of movement speed and damage scale constants severely affect
+/// the balance between melee and ranged units
+/// 
 /// Constant that scales the movement speed of units
 const MOVEMENT_SPEED: f32 = 0.01;
 
+/// Constant that scales the damage each unit does
+const DAMAGE_SCALE: f32 = 0.01;
+
 /// Constant that scales the positioning of units and bases
 const MAP_SCALE: f32 =  500.0;
+
+/// Constant that currently has no real use case
+const SPEED: f32 = 8.0;
 
 
 /// Tracks the global game state
@@ -95,21 +105,27 @@ impl event::EventHandler for GameState {
         elapsed_time -= ggez::timer::duration_to_f64(self.last_start) as f32;
         self.offset -= SPEED*(((ggez::timer::get_delta(ctx)).subsec_nanos() as f32)/1e8)+elapsed_time*(1.0/24.0);
 
-        // issue: we can not mutably borrow two different array indices at a time
+        // issue previously encountered here: we can not mutably borrow two different array indices at a time
         // possible workarounds: 
         // A - split into immutable check range loop and mutable move loop, add bool field to struct
         //      that tracks whether the the unit should move
         // B - use split at mut to generate two separate, mutable slice views on the vec
         //
         // Here, I've decided to use th Option B
+
+        // The following implementation seems to favour the player whose units attack first
+        // But as units with 0 hp are only sorted out at the end of the tick, this is not an issue
+        // (effectively allowing units whose hp were reduced to 0 or bellows to attack 1 more time)
         {
             let (player_0, player_1) = &mut self.players[..].split_at_mut(1);
 
             for unit in &mut player_0[0].units { 
-                let mut mobile = true;
-                for enemy_unit in &player_1[0].units{
+                let mut mobile = true;  //mobile meaning the opposite of immobile
+                for enemy_unit in &mut player_1[0].units{
                     if unit.in_range(enemy_unit){
                         mobile = false;
+
+                        enemy_unit.stats.hp = enemy_unit.stats.hp.zero_saturating_sub(unit.damage());
                     }
                 }
                 if mobile{
@@ -119,10 +135,11 @@ impl event::EventHandler for GameState {
             }
 
             for unit in &mut player_1[0].units{
-                let mut mobile = true; //mobile meaning the opposite of immobile, not a mobile phone
-                for enemy_unit in &player_0[0].units {
+                let mut mobile = true;  //mobile meaning the opposite of immobile
+                for enemy_unit in &mut player_0[0].units {
                     if unit.in_range(enemy_unit) {
                         mobile = false;
+                        enemy_unit.stats.hp = enemy_unit.stats.hp.zero_saturating_sub(unit.damage());
                     }
                 }
                 if mobile{
@@ -130,6 +147,18 @@ impl event::EventHandler for GameState {
                 }
             }
         }
+        
+        //this could potentially be multithreaded
+        for player in &mut self.players{
+            let mut living_units = Vec::with_capacity(player.units.capacity());
+            for unit in &player.units{
+                if unit.stats.hp > 0.0{
+                    living_units.push(unit.clone());
+                }
+            }
+            player.units = living_units;
+        }
+
         
 
         // for unit in &mut self.players[1].units{
@@ -197,6 +226,19 @@ enum Side{
     Right,
 }
 
+/// Zero-saturating mathematical operations that are not provided by default 
+trait ZeroSaturationOps{
+    fn zero_saturating_sub(&self, rhs: f32) -> f32;
+}
+impl ZeroSaturationOps for f32 {
+    /// Saturating float subtraction. Computes self - rhs, saturating at zero instead of returning
+    /// a negative value
+    fn zero_saturating_sub(&self, rhs: f32) -> f32 {
+        let result = self - rhs;
+        if result<0.0 {0.0} else {result}
+    }
+}
+
 /// A player, controlled by either human or AI
 #[derive(Debug, Clone)]
 struct Player{
@@ -216,7 +258,7 @@ impl Player{
     } 
 }
 
-///The base each player has to defend
+/// The base each player has to defend
 #[derive(Debug, Clone)]
 struct Base{
     sprite: graphics::Image,
@@ -241,13 +283,13 @@ impl Base {
 
 
 
-
+/// The stats of a character
 #[derive(Debug, Clone)]
 struct CharStats{
     cost: u32,
     hp: f32,
-    speed: f32,
     damage: f32,
+    speed: f32,
     range: f32,
     targets: usize,   
 }
@@ -275,7 +317,7 @@ impl GameChar{
             name: String::from("ling"),
             stats: CharStats{
                 cost: 10,
-                speed: 1.0,
+                speed: 2.0,
                 damage: 4.0,
                 hp: 10.0,
                 range: 3.0,
@@ -299,10 +341,10 @@ impl GameChar{
             name: String::from("hydra"),
             stats: CharStats{
                 cost: 20,
-                speed: 2.0,
+                speed: 1.0,
                 damage: 4.0,
                 hp: 12.0,
-                range: 10.0,
+                range: 150.0,
                 targets: 1,
             },
             position: position,
@@ -326,7 +368,7 @@ impl GameChar{
             name: String::from("bane"),
             stats: CharStats{
                 cost: 30,
-                speed: 1.0,
+                speed: 0.5,
                 damage: 10.0,
                 hp: 15.0,
                 range: 3.0,
@@ -339,7 +381,13 @@ impl GameChar{
 
     fn in_range(&self, other: &GameChar) -> bool {
         (self.position - other.position).abs()*MAP_SCALE < self.stats.range
-    } 
+    }
+
+    /// Returns the damage value of the `GameChar`, multiplicated with
+    /// the DAMAGE_SCALE consant
+    fn damage(&self) -> f32{
+        self.stats.damage*DAMAGE_SCALE
+    }
 }
 
 
