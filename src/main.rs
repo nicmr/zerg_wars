@@ -61,28 +61,50 @@ impl event::EventHandler for GameState {
         match keycode{
             // Spawn a zergling for Player 0
             Keycode::Num1 => {
-                self.players[0].units.push(GameChar::ling(ctx, Side::Left).unwrap());
+                if self.players[0].minerals>200{
+                    self.players[0].minerals -= 200;
+                    self.players[0].units.push(GameChar::ling(ctx, Side::Left).unwrap());
+
+                }
             }
             // Spawn a hydra for Player 0
             Keycode::Num2 => {
-                self.players[0].units.push(GameChar::hydra(ctx, Side::Left).unwrap());
+                if self.players[0].minerals>500{
+                    self.players[0].minerals -= 300;
+                    self.players[0].units.push(GameChar::hydra(ctx, Side::Left).unwrap());
+                }
             }
             // Spawn a baneling for Player 0
             Keycode::Num3 => {
-                self.players[0].units.push(GameChar::bane(ctx, Side::Left).unwrap());
+                if self.players[0].minerals>300{
+                    self.players[0].minerals -= 300;
+                    self.players[0].units.push(GameChar::bane(ctx, Side::Left).unwrap());
+                    
+                }
             }
 
             // Spawn a zergling for Player 1
             Keycode::Kp1 => {
-                self.players[1].units.push(GameChar::ling(ctx, Side::Right).unwrap());
+                if self.players[1].minerals>200{
+                    self.players[1].minerals -= 200;
+                    self.players[1].units.push(GameChar::ling(ctx, Side::Right).unwrap());
+
+                }
             }
             // Spawn a hydra for Player 1
             Keycode::Kp2 => {
-                self.players[1].units.push(GameChar::hydra(ctx, Side::Right).unwrap());
+                if self.players[1].minerals>500{
+                    self.players[1].minerals -= 300;
+                    self.players[1].units.push(GameChar::hydra(ctx, Side::Right).unwrap());
+                }
             }
             // Spawn a baneling for Player 1
             Keycode::Kp3 => {
-                self.players[1].units.push(GameChar::bane(ctx, Side::Right).unwrap());
+                if self.players[1].minerals>300{
+                    self.players[1].minerals -= 300;
+                    self.players[1].units.push(GameChar::bane(ctx, Side::Right).unwrap());
+                    
+                }
             }
 
             // Replace the unit vector with a new, empty one, effectively removing all units
