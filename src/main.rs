@@ -8,14 +8,17 @@ use ggez::conf;
 
 use std::{env, path};
 
+/// Constant that currently has no real use case
 const SPEED: f32 = 8.0;
 
+/// Constant that scales the movement speed of units
 const MOVEMENT_SPEED: f32 = 0.01;
 
+/// Constant that scales the positioning of units and bases
 const MAP_SCALE: f32 =  500.0;
 
 
-
+/// Tracks the global game state
 struct GameState {
     players: Vec<Player>,
     offset: f32,
@@ -26,7 +29,7 @@ struct GameState {
 }
 
 impl GameState {
-    /// Returns a new GameState struct, that contains the global state of the game
+    /// Returns a new GameState struct
     pub fn new(ctx: &mut Context) -> GameResult<GameState>{
         Ok(GameState{
             players: vec!(Player::new(ctx, Side::Left)?, Player::new(ctx, Side::Right)?),
@@ -69,6 +72,13 @@ impl event::EventHandler for GameState {
                 self.players[1].units.push(GameChar::bane(ctx, Side::Right).unwrap());
             }
 
+            // Replace the unit vector with a new, empty one, effectively removing all units
+            Keycode::Backspace => {
+                for player in &mut self.players{
+                    player.units = Vec::with_capacity(50);
+                }
+            }
+
             _ => (),  // Unknown key, do nothing
         }
        
@@ -85,13 +95,53 @@ impl event::EventHandler for GameState {
         elapsed_time -= ggez::timer::duration_to_f64(self.last_start) as f32;
         self.offset -= SPEED*(((ggez::timer::get_delta(ctx)).subsec_nanos() as f32)/1e8)+elapsed_time*(1.0/24.0);
 
-        for unit in &mut self.players[0].units{
-            unit.position += unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
-        }
+        // issue: we can not mutably borrow two different array indices at a time
+        // possible workarounds: 
+        // A - split into immutable check range loop and mutable move loop, add bool field to struct
+        //      that tracks whether the the unit should move
+        // B - use split at mut to generate two separate, mutable slice views on the vec
+        //
+        // Here, I've decided to use th Option B
+        {
+            let (player_0, player_1) = &mut self.players[..].split_at_mut(1);
 
-        for unit in &mut self.players[1].units{
-            unit.position -= unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
+            for unit in &mut player_0[0].units { 
+                let mut mobile = true;
+                for enemy_unit in &player_1[0].units{
+                    if unit.in_range(enemy_unit){
+                        mobile = false;
+                    }
+                }
+                if mobile{
+                    unit.position += unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
+
+                }
+            }
+
+            for unit in &mut player_1[0].units{
+                let mut mobile = true; //mobile meaning the opposite of immobile, not a mobile phone
+                for enemy_unit in &player_0[0].units {
+                    if unit.in_range(enemy_unit) {
+                        mobile = false;
+                    }
+                }
+                if mobile{
+                    unit.position -= unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
+                }
+            }
         }
+        
+
+        // for unit in &mut self.players[1].units{
+        //     //determine if any enemy unit can be attacked
+        //     for (k, enemy_unit) in self.players[0].units.iter().enumerate(){
+
+        //         if unit.in_range(enemy_unit){
+        //             //do not change position
+        //         }
+        //     }
+        //     unit.position -= unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
+        // }
         
 
         Ok(())
@@ -105,7 +155,9 @@ impl event::EventHandler for GameState {
             self.debug_once = false;
             println!("{:?}", self.players);
         }
-        for (i, player) in self.players.iter().enumerate() {
+        for player in & self.players {
+
+            //draw each players' base!
             let p = graphics::DrawParam {
                 dest: graphics::Point2::new(player.base.position*MAP_SCALE, 200.0),
                 scale: graphics::Point2::new(0.25, 0.25),
@@ -115,17 +167,10 @@ impl event::EventHandler for GameState {
 
             graphics::draw_ex(ctx, &player.base.sprite, p)?;
 
+
+            //draw all units!
             for unit in &player.units{
-                //determine if any enemy unit can be attacked
-                for (k, enemy_unit) in self.players[1-i].units.iter().enumerate(){
-                    if unit.in_range(enemy_unit){
-                        println!("target in range!");
-                        
-                    }
-                    
-                }
-
-
+                
                 let p = graphics::DrawParam {
                 dest: graphics::Point2::new(unit.position*MAP_SCALE, 400.0),
                 scale: graphics::Point2::new(0.15, 0.15),
@@ -145,13 +190,14 @@ impl event::EventHandler for GameState {
 }
 
 
-
+/// Used to identify the two sides of the battlefield, Left and Right
 #[derive(Debug, Clone, PartialEq)]
 enum Side{
     Left,
     Right,
 }
 
+/// A player, controlled by either human or AI
 #[derive(Debug, Clone)]
 struct Player{
     units: Vec<GameChar>,
