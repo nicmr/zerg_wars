@@ -33,7 +33,9 @@ struct GameState {
     players: Vec<Player>,
     offset: f32,
     last_start: std::time::Duration,
+    font: graphics::Font,
 
+    //only for quick debugging, consider removing in final release
     debug: bool,
     debug_once: bool,
 }
@@ -41,11 +43,12 @@ struct GameState {
 impl GameState {
     /// Returns a new GameState struct
     pub fn new(ctx: &mut Context) -> GameResult<GameState>{
+        let font = graphics::Font::new(ctx, "/Roboto-Regular.ttf", 16)?;
         Ok(GameState{
             players: vec!(Player::new(ctx, Side::Left)?, Player::new(ctx, Side::Right)?),
             offset: 0.0,
             last_start: std::time::Duration::from_secs(0),
-
+            font: font,
             debug: true,
             debug_once: true,
         })
@@ -105,20 +108,16 @@ impl event::EventHandler for GameState {
         elapsed_time -= ggez::timer::duration_to_f64(self.last_start) as f32;
         self.offset -= SPEED*(((ggez::timer::get_delta(ctx)).subsec_nanos() as f32)/1e8)+elapsed_time*(1.0/24.0);
 
-        // issue previously encountered here: we can not mutably borrow two different array indices at a time
-        // possible workarounds: 
-        // A - split into immutable check range loop and mutable move loop, add bool field to struct
-        //      that tracks whether the the unit should move
-        // B - use split at mut to generate two separate, mutable slice views on the vec
-        //
-        // Here, I've decided to use th Option B
 
+
+        // Deal damage
         // The following implementation seems to favour the player whose units attack first
         // But as units with 0 hp are only sorted out at the end of the tick, this is not an issue
         // (effectively allowing units whose hp were reduced to 0 or bellows to attack 1 more time)
         {
             let (player_0, player_1) = &mut self.players[..].split_at_mut(1);
 
+            // Left player's units deal damage and move
             for unit in &mut player_0[0].units { 
                 let mut mobile = true;  //mobile meaning the opposite of immobile
                 for enemy_unit in &mut player_1[0].units{
@@ -134,6 +133,7 @@ impl event::EventHandler for GameState {
                 }
             }
 
+            // Right player's units deal damage and move
             for unit in &mut player_1[0].units{
                 let mut mobile = true;  //mobile meaning the opposite of immobile
                 for enemy_unit in &mut player_0[0].units {
@@ -148,8 +148,12 @@ impl event::EventHandler for GameState {
             }
         }
         
-        //this could potentially be multithreaded
+        //this could potentially be adapted to be multithreaded
         for player in &mut self.players{
+            //Gain resources
+            player.minerals += 1;
+
+            //remove dead units
             let mut living_units = Vec::with_capacity(player.units.capacity());
             for unit in &player.units{
                 if unit.stats.hp > 0.0{
@@ -188,7 +192,7 @@ impl event::EventHandler for GameState {
 
             //draw each players' base!
             let p = graphics::DrawParam {
-                dest: graphics::Point2::new(player.base.position*MAP_SCALE, 200.0),
+                dest: graphics::Point2::new(player.base.position(), 200.0),
                 scale: graphics::Point2::new(0.25, 0.25),
                 rotation: 0.0,
                 ..Default::default()
@@ -196,12 +200,21 @@ impl event::EventHandler for GameState {
 
             graphics::draw_ex(ctx, &player.base.sprite, p)?;
 
+             //draw each player's minerals
+            {
+               
+                let s = format!("Minerals: {}", player.minerals);
+                let text = graphics::Text::new(ctx, s.as_str(), &self.font)?;
+                let dest_point = graphics::Point2::new(player.base.position(), 100.0);
+                graphics::draw(ctx, &text, dest_point, 0.0)?;
+            }
+            
 
             //draw all units!
             for unit in &player.units{
                 
                 let p = graphics::DrawParam {
-                dest: graphics::Point2::new(unit.position*MAP_SCALE, 400.0),
+                dest: graphics::Point2::new(unit.position(), 400.0),
                 scale: graphics::Point2::new(0.15, 0.15),
                 rotation: 0.0,
                 ..Default::default()
@@ -278,6 +291,11 @@ impl Base {
             hp: 100.0,
             position: position,
         })
+    }
+    /// Returns the base's (x-Axis) Position, multiplied with 
+    /// the MAP_SCALE constant
+    pub fn position(&self) -> f32 {
+        self.position * MAP_SCALE
     }
 }
 
@@ -380,13 +398,19 @@ impl GameChar{
     }
 
     fn in_range(&self, other: &GameChar) -> bool {
-        (self.position - other.position).abs()*MAP_SCALE < self.stats.range
+        (self.position() - other.position()).abs() < self.stats.range
     }
 
     /// Returns the damage value of the `GameChar`, multiplicated with
     /// the DAMAGE_SCALE consant
     fn damage(&self) -> f32{
         self.stats.damage*DAMAGE_SCALE
+    }
+
+    /// Returns the (x-Axis) position of the `GameChar`, multiplicated with
+    /// the MAP_SCALE constant
+    fn position(&self) -> f32 {
+        self.position * MAP_SCALE
     }
 }
 
