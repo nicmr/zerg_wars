@@ -82,7 +82,7 @@ impl event::EventHandler for GameState {
                     
                 }
             }
-
+ 
             // Spawn a zergling for Player 1
             Keycode::Kp1 => {
                 if self.players[1].minerals>200{
@@ -140,33 +140,13 @@ impl event::EventHandler for GameState {
             let (player_0, player_1) = &mut self.players[..].split_at_mut(1);
 
             // Left player's units deal damage and move
-            for unit in &mut player_0[0].units { 
-                let mut mobile = true;  //mobile meaning the opposite of immobile
-                for enemy_unit in &mut player_1[0].units{
-                    if unit.in_range(enemy_unit){
-                        mobile = false;
-
-                        enemy_unit.stats.hp = enemy_unit.stats.hp.zero_saturating_sub(unit.damage());
-                    }
-                }
-                if mobile{
-                    unit.position += unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
-
-                }
+            for unit in &mut player_0[0].units {
+                unit.attack_move(ctx, &mut player_1[0].units);
             }
 
             // Right player's units deal damage and move
             for unit in &mut player_1[0].units{
-                let mut mobile = true;  //mobile meaning the opposite of immobile
-                for enemy_unit in &mut player_0[0].units {
-                    if unit.in_range(enemy_unit) {
-                        mobile = false;
-                        enemy_unit.stats.hp = enemy_unit.stats.hp.zero_saturating_sub(unit.damage());
-                    }
-                }
-                if mobile{
-                    unit.position -= unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
-                }
+                unit.attack_move(ctx, &mut player_0[0].units);
             }
         }
         
@@ -184,21 +164,6 @@ impl event::EventHandler for GameState {
             }
             player.units = living_units;
         }
-
-        
-
-        // for unit in &mut self.players[1].units{
-        //     //determine if any enemy unit can be attacked
-        //     for (k, enemy_unit) in self.players[0].units.iter().enumerate(){
-
-        //         if unit.in_range(enemy_unit){
-        //             //do not change position
-        //         }
-        //     }
-        //     unit.position -= unit.stats.speed*MOVEMENT_SPEED*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8));
-        // }
-        
-
         Ok(())
     }
 
@@ -255,7 +220,7 @@ impl event::EventHandler for GameState {
 
 
 /// Used to identify the two sides of the battlefield, Left and Right
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum Side{
     Left,
     Right,
@@ -340,7 +305,8 @@ struct GameChar{
     name: String,
     stats: CharStats,
     position: f32,
-    sprite: graphics::Image
+    sprite: graphics::Image,
+    side: Side,
 }
 
 impl GameChar{
@@ -365,6 +331,7 @@ impl GameChar{
             },
             position: position,
             sprite: sprite,
+            side: side,
         })
         
     }
@@ -389,6 +356,7 @@ impl GameChar{
             },
             position: position,
             sprite: sprite,
+            side: side,
         })
 
     }
@@ -416,6 +384,7 @@ impl GameChar{
             },
             position: position,
             sprite: sprite,
+            side: side,
         })
     }
 
@@ -433,6 +402,47 @@ impl GameChar{
     /// the MAP_SCALE constant
     fn position(&self) -> f32 {
         self.position * MAP_SCALE
+    }
+
+    /// Returns the (horizontal) speed of the `GameChar`, multiplicated with
+    /// the MOVEMENT_SPEED constant
+    fn speed(&self) -> f32 {
+        self.stats.speed*MOVEMENT_SPEED
+    }
+
+    /// Moves self forward on the x-scale, away from its own base
+    fn move_forward(&mut self, ctx: &mut Context){
+        match self.side{
+            Side::Left => self.position += self.speed()*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8)),
+            Side::Right => self.position -= self.speed()*((ggez::timer::get_delta(ctx).subsec_nanos() as f32/1e8)),
+        }
+    }
+
+    /// Makes &mut self attack as many `GameChar`s in enemies as possible,
+    /// until it has reached the maximum number of targets
+    /// If there was no target to attack, it will move by calling self.move_forward()
+    fn attack_move(&mut self, ctx: &mut Context, enemies: &mut Vec<GameChar>){
+
+        //mobile means the opposite of immobile
+        //mobile is truue when there has been no attack        
+        let mut mobile = true; 
+        let mut attack_count = 0;
+        for enemy_unit in enemies {
+            //ensure unit attacks only one target
+            if attack_count == self.stats.targets{
+                break;
+            }
+            //determine if target is in range
+            if self.in_range(enemy_unit) {
+                attack_count += 1;    
+                mobile = false;
+                enemy_unit.stats.hp = enemy_unit.stats.hp.zero_saturating_sub(self.damage());
+            }
+        }
+        //move, if possible
+        if mobile{
+            self.move_forward(ctx);
+        }
     }
 }
 
