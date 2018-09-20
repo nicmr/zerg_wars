@@ -5,3 +5,4 @@ authors = ["Nicolas Mohr <Nico.Mohr@gmx.net>"]
 
 [dependencies]
 ggez = "0.4.4"
+reqwest = "0.9.0"
