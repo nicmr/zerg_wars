@@ -1,5 +1,5 @@
 # zerg_wars
-A game AI experiment about two zerg tribes fighting for control over a planet / local 1v1 / 1vAI / AIvAI.
+A game AI experiment about two zerg tribes fighting for control over a planet. local 1v1 works,  1vAI / AIvAI is WIP.
 
 Built on top of ggez.
 
@@ -42,3 +42,13 @@ Unit Stats
 
 ## How the AI works
 WIP
+
+
+
+## Quick source file reference
+- `constants.rs`: constants that scale game speed, movement speed, damage and map scale
+- `gameobject.rs`: the various units types and bases found in the game
+- `gamestate.rs`: the global game state & event handlers
+- `main.rs`: entry point for the program, asset fetching, game launch
+- `player.rs`: human and AI-player related code
+- `traits.rs`: traits used in the other source files
