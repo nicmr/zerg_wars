@@ -10,7 +10,7 @@ use ggez;
 /// The stats of a character
 #[derive(Debug, Clone)]
 pub struct CharStats{
-    cost: u32,
+    pub cost: u32,
     pub hp: f32,
     damage: f32,
     speed: f32,
@@ -26,7 +26,7 @@ pub struct CharStats{
 /// A `GameChar` represents what once would consider a `unit` in RTS. 
 #[derive(Debug, Clone)]
 pub struct GameChar{
-    name: String,
+    pub name: String,
     pub stats: CharStats,
     position: f32,
     pub sprite: graphics::Image,

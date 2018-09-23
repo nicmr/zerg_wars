@@ -51,15 +51,15 @@ impl event::EventHandler for GameState {
             }
             // Spawn a hydra for Player 0
             Keycode::Num2 => {
-                if self.players[0].minerals>500{
+                if self.players[0].minerals>300{
                     self.players[0].minerals -= 300;
                     self.players[0].units.push(GameChar::hydra(ctx, Side::Left).unwrap());
                 }
             }
             // Spawn a baneling for Player 0
             Keycode::Num3 => {
-                if self.players[0].minerals>300{
-                    self.players[0].minerals -= 300;
+                if self.players[0].minerals>400{
+                    self.players[0].minerals -= 400;
                     self.players[0].units.push(GameChar::bane(ctx, Side::Left).unwrap());
                     
                 }
@@ -75,15 +75,15 @@ impl event::EventHandler for GameState {
             }
             // Spawn a hydra for Player 1
             Keycode::Kp2 => {
-                if self.players[1].minerals>500{
+                if self.players[1].minerals>300{
                     self.players[1].minerals -= 300;
                     self.players[1].units.push(GameChar::hydra(ctx, Side::Right).unwrap());
                 }
             }
             // Spawn a baneling for Player 1
             Keycode::Kp3 => {
-                if self.players[1].minerals>300{
-                    self.players[1].minerals -= 300;
+                if self.players[1].minerals>400{
+                    self.players[1].minerals -= 400;
                     self.players[1].units.push(GameChar::bane(ctx, Side::Right).unwrap());
                     
                 }
