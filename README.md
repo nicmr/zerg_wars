@@ -24,14 +24,15 @@ cargo run --release
 
 Spend your resources, counter your opponent's army composition and destroy the opposing base to win!
 
-Controls
+#### Controls
+
 | Command | Hotkey Player1 | Hotkey Player2 |
 | --- | --- | --- |
 | Spawn Zergling | 1 | Numpad 1 |
 | Spawn Hydra | 2 | Numpad 2 |
 | Spawn Baneling | 3 | Numpad 3|
 
-Unit Stats
+#### Unit Stats
 
 | Unit | HP | Damage | Speed | Range | Targets|
 | --- | --- | --- | --- | --- | --- |
